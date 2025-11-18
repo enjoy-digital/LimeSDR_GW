@@ -47,6 +47,7 @@ class CRG(LiteXModule):
         self.cd_sys4x     = ClockDomain()
         self.cd_sys4x_dqs = ClockDomain()
         self.cd_idelay    = ClockDomain()
+        self.cd_ppsdo     = ClockDomain()
         self.cd_rf        = ClockDomain()
 
         # Clk/Rst.
@@ -59,7 +60,8 @@ class CRG(LiteXModule):
         self.comb += pll.reset.eq(self.rst)
         pll.register_clkin(clk200_se, 200e6)
         pll.create_clkout(self.cd_sys,       sys_clk_freq, margin=0)
-        pll.create_clkout(self.cd_rf,        25e6, margin=0)
+        pll.create_clkout(self.cd_ppsdo,     10e6, margin=0)
+        pll.create_clkout(self.cd_rf,        10e6, margin=0)
         if with_dram:
             pll.create_clkout(self.cd_sys4x,     4*sys_clk_freq)
             pll.create_clkout(self.cd_sys4x_dqs, 4*sys_clk_freq, phase=90)
@@ -223,10 +225,10 @@ class BaseSoC(SoCCore):
             self.add_sata(phy=self.sata_phy, mode="read+write")
 
         # Leds -------------------------------------------------------------------------------------
-        if with_led_chaser:
-            self.leds = LedChaser(
-                pads         = platform.request_all("user_led"),
-                sys_clk_freq = sys_clk_freq)
+        #if with_led_chaser:
+        #    self.leds = LedChaser(
+        #        pads         = platform.request("user_led"),
+        #        sys_clk_freq = sys_clk_freq)
 
         # PPSDO ------------------------------------------------------------------------------------
 
@@ -242,13 +244,14 @@ class BaseSoC(SoCCore):
             from litescope import LiteScopeAnalyzer
 
             # PPSDO Instance.
-            self.ppsdo = ppsdo = PPSDO(cd_sys="sys", cd_rf="rf", with_csr=True)
-            self.ppsdo.add_sources()
+            self.ppsdo = ppsdo = PPSDO(cd_sys="ppsdo", cd_rf="rf", with_csr=True)
+            self.ppsdo.add_sources(ppsdo_clk_freq=10e6)
 
-            self.pps_timer = ClockDomainsRenamer("rf")(WaitTimer(int(25e6)))
+            self.pps_timer = ClockDomainsRenamer("rf")(WaitTimer(int(5e6-1)))
             self.comb += self.pps_timer.wait.eq(~self.pps_timer.done)
-            self.comb += ppsdo.pps.eq(self.pps_timer.done)
 
+            self.sync.rf += If(self.pps_timer.done, ppsdo.pps.eq(~ppsdo.pps))
+            self.sync.rf += platform.request("user_led", 0).eq(ppsdo.pps)
 
             serial_pads = platform.request("serial")
             self.comb += [

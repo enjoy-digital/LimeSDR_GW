@@ -175,6 +175,9 @@ def enable_gpsdo(driver, clk_freq_mhz=30.72, ppm=0.1):
     tol_100s_hz = tol_1s_hz * 100
 
     # Configure targets and tolerances (32-bit registers)
+    print(target_1s)
+    print(tol_1s_hz)
+    #exit()
     driver.write_register(REG_PPS_1S_TARGET,   target_1s)
     driver.write_register(REG_PPS_1S_ERR_TOL,  tol_1s_hz)
     driver.write_register(REG_PPS_10S_TARGET,  target_10s)
