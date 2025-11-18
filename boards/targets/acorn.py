@@ -239,6 +239,8 @@ class BaseSoC(SoCCore):
             from gateware.LimePPSDO.src.ppsdo import PPSDO
             from litex.gen.genlib.misc import WaitTimer
 
+            from litescope import LiteScopeAnalyzer
+
             # PPSDO Instance.
             self.ppsdo = ppsdo = PPSDO(cd_sys="sys", cd_rf="rf", with_csr=True)
             self.ppsdo.add_sources()
@@ -253,6 +255,20 @@ class BaseSoC(SoCCore):
                 serial_pads.tx.eq(ppsdo.uart.tx),
                 ppsdo.uart.rx.eq(serial_pads.rx),
             ]
+
+            analyzer_signals = [
+                self.ppsdo.enable,
+                self.ppsdo.pps,
+                self.ppsdo.uart,
+                self.ppsdo.config,
+                self.ppsdo.status,
+            ]
+            self.analyzer = LiteScopeAnalyzer(analyzer_signals,
+                depth        = 4096,
+                clock_domain = "sys",
+                register     = True,
+                csr_csv      = "analyzer.csv"
+            )
 
         # ./acorn.py --cpu-type=None --uart-name=stub --integrated-main-ram-size=0x100 --with-etherbone --csr-csv=csr.csv --build --load
 
