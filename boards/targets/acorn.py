@@ -60,7 +60,6 @@ class CRG(LiteXModule):
         self.comb += pll.reset.eq(self.rst)
         pll.register_clkin(clk200_se, 200e6)
         pll.create_clkout(self.cd_sys,       sys_clk_freq, margin=0)
-        pll.create_clkout(self.cd_ppsdo,     10e6, margin=0)
         pll.create_clkout(self.cd_rf,        10e6, margin=0)
         if with_dram:
             pll.create_clkout(self.cd_sys4x,     4*sys_clk_freq)
@@ -244,8 +243,8 @@ class BaseSoC(SoCCore):
             from litescope import LiteScopeAnalyzer
 
             # PPSDO Instance.
-            self.ppsdo = ppsdo = PPSDO(cd_sys="ppsdo", cd_rf="rf", with_csr=True)
-            self.ppsdo.add_sources(ppsdo_clk_freq=10e6)
+            self.ppsdo = ppsdo = PPSDO(cd_sys="sys", cd_rf="rf", with_csr=True)
+            self.ppsdo.add_sources()
 
             self.pps_timer = ClockDomainsRenamer("rf")(WaitTimer(int(5e6-1)))
             self.comb += self.pps_timer.wait.eq(~self.pps_timer.done)
