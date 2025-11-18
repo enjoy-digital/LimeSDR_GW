@@ -47,6 +47,7 @@ class CRG(LiteXModule):
         self.cd_sys4x     = ClockDomain()
         self.cd_sys4x_dqs = ClockDomain()
         self.cd_idelay    = ClockDomain()
+        self.cd_rf        = ClockDomain()
 
         # Clk/Rst.
         clk200    = platform.request("clk200")
@@ -57,7 +58,8 @@ class CRG(LiteXModule):
         self.pll = pll = S7PLL()
         self.comb += pll.reset.eq(self.rst)
         pll.register_clkin(clk200_se, 200e6)
-        pll.create_clkout(self.cd_sys,       sys_clk_freq)
+        pll.create_clkout(self.cd_sys,       sys_clk_freq, margin=0)
+        pll.create_clkout(self.cd_rf,        25e6, margin=0)
         if with_dram:
             pll.create_clkout(self.cd_sys4x,     4*sys_clk_freq)
             pll.create_clkout(self.cd_sys4x_dqs, 4*sys_clk_freq, phase=90)
@@ -225,6 +227,34 @@ class BaseSoC(SoCCore):
             self.leds = LedChaser(
                 pads         = platform.request_all("user_led"),
                 sys_clk_freq = sys_clk_freq)
+
+        # PPSDO ------------------------------------------------------------------------------------
+
+        with_ppsdo = True
+
+        if with_ppsdo:
+            # Imports.
+            import sys
+            sys.path.append("../../")
+            from gateware.LimePPSDO.src.ppsdo import PPSDO
+            from litex.gen.genlib.misc import WaitTimer
+
+            # PPSDO Instance.
+            self.ppsdo = ppsdo = PPSDO(cd_sys="sys", cd_rf="rf", with_csr=True)
+            self.ppsdo.add_sources()
+
+            self.pps_timer = ClockDomainsRenamer("rf")(WaitTimer(int(25e6)))
+            self.comb += self.pps_timer.wait.eq(~self.pps_timer.done)
+            self.comb += ppsdo.pps.eq(self.pps_timer.done)
+
+
+            serial_pads = platform.request("serial")
+            self.comb += [
+                serial_pads.tx.eq(ppsdo.uart.tx),
+                ppsdo.uart.rx.eq(serial_pads.rx),
+            ]
+
+        # ./acorn.py --cpu-type=None --uart-name=stub --integrated-main-ram-size=0x100 --with-etherbone --csr-csv=csr.csv --build --load
 
 # Build --------------------------------------------------------------------------------------------
 
